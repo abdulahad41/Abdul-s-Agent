@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import MessageBubble from './MessageBubble';
-import { getChatCompletion } from '@/lib/groq';
+import { getChatCompletion } from '../lib/groq';
 
 interface Message {
   role: 'user' | 'assistant';
