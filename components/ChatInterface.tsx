@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { getChatCompletion } from '../lib/groq';
+import { supabase } from '../lib/supabase'; // Supabase client ko link kar diya
 
 interface Message {
   role: 'user' | 'assistant';
@@ -25,6 +26,28 @@ export default function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Website khulte hi database se purani chat load karne ke liye
+  useEffect(() => {
+    scrollToBottom();
+    
+    async function loadSavedChats() {
+      try {
+        const { data, error } = await supabase
+          .from('chats')
+          .select('role, content')
+          .order('created_at', { ascending: true });
+
+        if (data && data.length > 0) {
+          setMessages(data as Message[]);
+        }
+      } catch (err) {
+        console.error("Purani chat load nahi ho saki:", err);
+      }
+    }
+    
+    loadSavedChats();
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -38,16 +61,23 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
+      // 1. User ka message Supabase mein daalein
+      await supabase.from('chats').insert([userMessage]);
+
       const response = await getChatCompletion(
         messages.concat(userMessage).map(m => ({ role: m.role, content: m.content }))
       );
       
       const assistantMessage: Message = { role: 'assistant', content: response };
       setMessages(prev => [...prev, assistantMessage]);
+
+      // 2. AI Agent ka jawab bhi Supabase mein save karein
+      await supabase.from('chats').insert([assistantMessage]);
+
     } catch (error) {
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Oops bhai! Kuch error aa gaya. API key sahi se set ki hai? Ya thodi der baad try karo.',
+        content: 'Oops bhai! Kuch error aa gaya. Keys sahi se set ki hain? Ya thodi der baad try karo.',
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -72,7 +102,7 @@ export default function ChatInterface() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-white">Abdul's Agent</h1>
-            <p className="text-xs text-gray-400">AI Co-Founder by Abdul Ahad</p>
+            <p className="text-xs text-gray-400">AI Co-Founder by Abdul Ahad (Supabase Connected)</p>
           </div>
         </div>
       </div>
